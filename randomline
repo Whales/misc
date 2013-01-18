@@ -1,0 +1,14 @@
+#!/usr/bin/perl
+
+my @lines;
+
+foreach (<>) {
+	push @lines, $_;
+}
+
+my $num = @lines;
+
+my $index = rand($num);
+my $output = $lines[$index];
+
+print $output;

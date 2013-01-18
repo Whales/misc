@@ -1,0 +1,37 @@
+#!/usr/bin/perl
+my $logdir = "/home/whales/irclogs";
+
+if ($#ARGV < 0) {
+	print "Usage: randomquote <channel> [+Nick] [-Exclusion...] [Term...]\n";
+	exit;
+}
+my $channel = $ARGV[0];
+$channel =~ s/^#/\\\#/;
+my @files = `find $logdir -iname "*$channel.log"`;
+my @result;
+foreach $file (@files) {
+	chomp($file);
+	my $term = "cat $file";
+	for (1 .. $#ARGV) {
+		if ($ARGV[$_] =~ m/^-/) {
+			$ARGV[$_] =~ s/^-//;
+			$term .= " | egrep -i -v \"$ARGV[$_]\"";
+			$ARGV[$_] = "-$ARGV[$_]";
+		} elsif ($ARGV[$_] =~ m/^\+/) {
+			$ARGV[$_] =~ s/^\+//;
+			$ARGV[$_] = "\\\* \\\w*$ARGV[$_]|$ARGV[$_]\\\w*>";
+			$term .= " | egrep -i \"$ARGV[$_]\"";
+		} else {
+			$term .= " | egrep -i \"$ARGV[$_]\"";
+		}
+	}
+	$term .= " | grep -v randomquote | grep -v \"\\-\\!\\-\"";
+	@result = (@result, `$term`);
+}
+my $index = rand(scalar(@result));
+my $output = $result[$index];
+chomp($output);
+if ($output =~ m/^\s*$/) {
+	$output = "No such quote!";
+}
+print "$output\n";

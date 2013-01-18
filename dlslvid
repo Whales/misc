@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+use LWP;
+
+my $url = $ARGV[0];
+my $b = LWP::UserAgent->new;
+my $page = $b->get($url)->content;
+
+$page =~ s/.*flv=(.*?)".*/$1/s;
+$page =~ s/%(..)/chr(hex($1))/eg;
+chomp($page);
+
+my $name = $url;
+$name =~ s|.*/||;
+$name =~ s/html?/flv/;
+system("wget \"$page\" -O $name");

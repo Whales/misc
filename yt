@@ -1,0 +1,44 @@
+#!/usr/bin/perl
+
+
+my $sec = 20;			# How many seconds to wait before playing
+my $savefile = "/tmp/video.mp4";# Where the file goes
+
+# This will make it play in the upper-left corner of an 1024x600 framebuffer
+#my $mplayer_args = "-idle -really-quiet -vo fbdev2 -vf scale=500:300";
+# This will make it play with libcaca
+my $mplayer_args = "-really-quiet -vo caca";
+
+my $dl_args = "-q --no-part";
+# Use the following to authenticate.
+#my $dl_args = "-q -f 17 -u USERNAME -p PASSWORD";
+# Use the following if you want to authenticate via .netrc
+#my $dl_args = "-q -f 17 -n";
+
+$ARGV[0] =~ s/&.*//; # Strip crap
+system("rm -f $savefile; youtube-dl $dl_args -o $savefile $ARGV[0] &");
+
+my $vid = 0;
+
+until ($sec == 0) {
+	if (-e "$savefile" && $vid == 0) {
+		print "Acquired... ";
+		$vid = 1;
+	} elsif ($sec == 10) {
+		print "Playing in ";
+	} else {
+		print "            ";
+	}
+	print "$sec...\n";
+	$sec--;
+	sleep 1;
+}
+
+if (!(-e "$savefile")) {
+	print "Video didn't download :(	Maybe the net is busted.\n";
+	exit;
+}
+
+system("mplayer $mplayer_args $savefile; rm $savefile;");
+# Clean up stray downloaders
+system("kill `ps aux | grep youtube-dl | grep -v grep | awk '{print \$2}'` 2>/dev/null");

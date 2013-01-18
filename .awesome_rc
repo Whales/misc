@@ -1,0 +1,105 @@
+   ## Volume control
+     key { modkey = {"Mod4"}		key = "F11"	command = "spawn"	arg = "exec amixer -q set Master 1+ unmute" }
+     key { modkey = {"Mod4"}		key = "F10"	command = "spawn"	arg = "exec amixer -q set Master 1- unmute" }
+     key { modkey = {"Mod4"}		key = "F6"	command = "spawn"	arg = "exec amixer -q set PCM toggle|osdctl -s 'mute'" }
+
+   ## MPD control
+     key { modkey = {"Mod1", "Control"}	key = "space"	command = "spawn"	arg = "exec mpc toggle|osdctl -s 'play/pause'" }
+     key { modkey = {"Mod1", "Control"}	key = "Next"	command = "spawn"	arg = "exec mpc next|osdctl -s 'next'" }
+     key { modkey = {"Mod1", "Control"}	key = "Prior"	command = "spawn"	arg = "exec mpc prev|osdctl -s 'previous'" }
+
+ ## Awesome window manager
+   ## Layouts
+     key { modkey = {"Mod4"}		key = "space" 	command = "tag_setlayout"	arg = "+1" }
+     key { modkey = {"Mod4", "Shift"} 	key = "space" 	command = "tag_setlayout"	arg = "-1" }
+
+   ## Clients
+     key { modkey = {"Mod4"}		key = "m" 	command = "client_togglemax" }
+     key { modkey = {"Mod4", "Shift"}	key = "Left" 	command = "client_togglehorizontalmax" }
+     key { modkey = {"Mod4", "Shift"}	key = "Down" 	command = "client_toggleverticalmax" }
+     key { modkey = {"Mod4", "Shift"}	key = "Right" 	command = "client_togglehorizontalmax" }
+     key { modkey = {"Mod4", "Shift"}	key = "Up" 	command = "client_toggleverticalmax" }
+
+     key { modkey = {"Mod4", "Control"}	key = "space"	command = "client_togglefloating" }
+
+     key { modkey = {"Mod4"}		key = "s"	command = "client_togglescratch" }
+     key { modkey = {"Mod4", "Control"}	key = "s"	command = "client_setscratch" }
+
+     key { modkey = {"Mod4", "Control"}	key = "Return"	command = "client_zoom" }
+     key { modkey = {"Mod4", "Shift"}	key = "Home"	command = "client_zoom" }
+
+     key { modkey = {"Mod4"}		key = "Escape"	command = "client_kill" }
+     #key { modkey = {"Mod4", "Shift"}	key = "c"	command = "client_kill" }
+
+     key { modkey = {"Mod4", "Shift"}	key = "d"	command = "client_toggletitlebar" }
+
+     #key { modkey = {"Mod4", "Shift"}	key = "Print"	command = "client_tag" }
+     key { modkey = {"Mod4", "Shift"} 	key = "Print"	command = "client_toggletag" }
+
+   ## Tags
+     key { modkey = {"Mod1", "Control"}	key = "Right"	command = "tag_viewnext" }
+     key { modkey = {"Mod1", "Control"}	key = "Left"	command = "tag_viewprev" }
+     key { modkey = {"Mod1", "Control", "Shift"} 	key = "Left"		command = "tag_prev_selected" }
+
+     key { modkey = {"Mod4", "Control"}	key = "o"	command = "tag_toggleview" }
+     key { modkey = {"Mod4", "Control"}	key = "F6"	command = "tag_create"		arg = "six" }
+     key { modkey = {"Mod4", "Control"}	key = "F7"	command = "tag_create"		arg = "seven" }
+     key { modkey = {"Mod4"}		key = "Print"	command = "tag_view" }
+
+     key { modkey = {"Mod1", "Shift"}	key = "Left"	command = "tag_setmwfact"	arg = "-0.05" }
+     key { modkey = {"Mod1", "Shift"}	key = "Right"	command = "tag_setmwfact"	arg = "+0.05" }
+
+     key { modkey = {"Mod4"}	key = "h"	command = "tag_setnmaster"	arg = "-1" }
+     key { modkey = {"Mod4"}	key = "l"	command = "tag_setnmaster"	arg = "+1" }
+     key { modkey = {"Mod4", "Control"}	key = "h"	command = "tag_setncol"		arg = "+1" }
+     key { modkey = {"Mod4", "Control"}	key = "l"	command = "tag_setncol"		arg = "-1" }
+
+   ## Window Switching
+     key { modkey = {"Mod4"}		key = "j"	command = "client_focusnext" }
+     key { modkey = {"Mod4"}		key = "k"	command = "client_focusprev" }
+     key { modkey = {"Mod1"}		key = "Tab"	command = "client_focusnext" }
+     key { modkey = {"Mod1", "Shift"}	key = "Tab"	command = "client_focusprev" }
+
+     key { modkey = {"Mod4"}		key = "Tab"	command = "focus_history"	arg = "-1" }
+     key { modkey = {"Mod4", "Shift"}	key = "j"	command = "client_swapnext" }
+     key { modkey = {"Mod4", "Shift"}	key = "k"	command = "client_swapprev" }
+
+     #key { modkey = {"Mod4", "Control"} key = "j"	command = "screen_focus"	arg = "+1" }
+     #key { modkey = {"Mod4", "Control"} key = "k"	command = "screen_focus"	arg = "-1" }
+
+   ## Other     
+     key { modkey = {"Mod4", "Shift"}	key = "q"	command = "quit" }
+     key { modkey = {"Mod1", "Control"}	key = "r"	command = "restart" }
+     key { modkey = {"Mod4", "Shift"}	key = "b"	command = "statusbar_toggle" }
+
+   ## Keylists
+     keylist
+     {
+         modkey = {"Mod4", "Control"}
+         command = "tag_view"
+         keylist = { F1, F2, F3, F4, F5, F6, F7, F8, F9 }
+         arglist = { 1, 2, 3, 4, 5, 6, 7, 8, 9 }
+     }
+     keylist
+     {
+         modkey = {"Mod4", "Control"}
+         command = "tag_toggleview"
+         keylist = { 1, 2, 3, 4, 5, 6, 7, 8, 9 }
+         arglist = { 1, 2, 3, 4, 5, 6, 7, 8, 9 }
+     }
+     keylist
+     {
+         modkey = {"Mod4", "Shift"}
+         command = "client_tag"
+         keylist = { 1, 2, 3, 4, 5, 6, 7, 8, 9 }
+         arglist = { 1, 2, 3, 4, 5, 6, 7, 8, 9 }
+     }
+     keylist
+     {
+         modkey = {"Mod4", "Shift", "Control"}
+         command = "client_toggletag"
+         keylist = { 1, 2, 3, 4, 5, 6, 7, 8, 9 }
+         arglist = { 1, 2, 3, 4, 5, 6, 7, 8, 9 }
+     }
+ }
+ # vim: filetype=conf

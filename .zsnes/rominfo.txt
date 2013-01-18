@@ -1,0 +1,7 @@
+This is the info for the last game you ran.
+
+File: ngt.smc Header: Yes
+NINJA GAIDEN TRILOGY      TYPE:NORMAL   
+INTERLEAVED:No               CHKSUM:OK  
+VIDEO:NTSC    BANK:Lo     CRC32:066FE797
+                                        

@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+# Automatic pirate bayyery
+
+use LWP;
+use HTTP::Cookies;
+
+if (($#ARGV < 1) || ($ARGV[0] !~ /^-[avpg]$/)) {
+ print "Usage: pirate [-a] [-v] [-p] [-g] <search term>\n";
+ print " -a: Audio files\n -v: Video files\n -p: Applications\n -g: Games\n";
+ print " Exactly one flag must be used.\n";
+ exit;
+}
+my $tags;
+if ($ARGV[0] =~ /a/) { $tags="audio=on"; }
+if ($ARGV[0] =~ /v/) { $tags="video=on"; }
+if ($ARGV[0] =~ /p/) { $tags= "apps=on"; }
+if ($ARGV[0] =~ /g/) { $tags="games=on"; }
+
+my $url = "http://thepiratebay.org/s/?q=";
+for (1 .. $#ARGV) {
+	$ARGV[$_] =~ s!/! !g;
+	$url.=$ARGV[$_];
+	if ($_ < $#ARGV) {
+		$url.="%20";
+	}
+}
+$url.="&$tags&searchTitle=on&page=0&orderby=7";
+
+my $b = LWP::UserAgent->new;
+$b->cookie_jar( {} );
+my $results;
+my $page;
+my $tries = 0;
+do {
+	$results = $b->get($url);
+	$page = $results->content;
+	$tries++;
+	if ($tries == 3) {
+		print "Refreshed 3 times, search still overloaded...\n";
+	} elsif ($tries == 6) {
+		print "Refreshed 6 times, giving up.\n";
+		exit;
+	}
+} while ($page =~ /overloaded/);
+
+if ($page =~ /No hits/) {
+	print "No results.\n";
+	exit;
+}
+
+$page =~ s#.*?a href="/torrent(.*?)".*#http://thepiratebay.org/torrent$1#s;
+#$page =~ s#.*?(http://torrents\.thepiratebay\.org.*?\.torrent)".*#$1#s;
+print "$page\n";

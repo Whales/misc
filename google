@@ -1,0 +1,35 @@
+#!/usr/bin/perl
+
+my $command = "default_browser";
+my $term = "http://www.google.com/search?q=";
+my $name = $0; $name =~ s#.*/##;
+my $usage = "\
+Usage: $name [-il] <terms...>\
+-i:  Image search.
+-l:  Do not run $command; simply output the link.\
+\n";
+
+foreach (@ARGV) {
+	if (m/^-/) {
+		if (m/l/) {
+			$command = "echo";
+		}
+		if (m/i/) {
+			$term =~ s/search/images/;
+		}
+	} elsif (m/ /) {
+		$_ = "%22$_%22";
+		tr/ /+/;
+		$term .= "$_+";
+	} else {
+		$term .= "$_+";
+	}
+}
+
+if ($term =~ /=$/) { # No terms entered
+	print "$usage";
+	exit;
+}
+$term =~ s/\+$//;
+
+system("$command $term");

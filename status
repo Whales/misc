@@ -1,0 +1,189 @@
+#!/usr/bin/perl
+use Term::ANSIColor;
+our ($Rows, $Cols) = split(/ /, `/bin/stty size`);
+our $HOME	= $ENV{'HOME'};
+our $Bar_size	= $Cols - 12;
+our $Date	= "date";
+
+# Subroutines used by widgets
+sub fill_acpi;
+sub fill_conns;
+sub battery_color;
+sub thermal_color;
+sub print_battery_bar;
+	
+my $blink = 0; # Is blinking on or off?
+my $cycle = 0; # Incremented each sec; refresh if $cycle > %Options{'refresh'}
+
+while (1) {
+	$blink = $blink ? 0 : 1;
+
+	if ($cycle == 0) {
+		$date = `$Date`;
+		($batt_status, $batt_level, $thermal) = fill_acpi();
+		$batt_newlevel = $batt_level; #int(100 * (($batt_level - 85) / 15));
+		@netdata = fill_conns();
+	}
+
+	system("clear");
+
+	print color battery_color($batt_status, $batt_newlevel);
+	print "\nBattery: $batt_status\n";
+	print_battery_bar($batt_status, $batt_newlevel, $batt_level);
+	
+	print color thermal_color($thermal);
+	print "$thermal C\n";
+	print color 'reset';
+	print "$date\n";
+	foreach $line (@netdata) {
+		my $port  = $line->{port};
+		my $ip    = $line->{ip};
+		my $proc  = $line->{proc};
+		my $count = $line->{count};
+		if ($count == 1) {
+			print "$proc $ip:$port\n";
+		} else {
+			print "$proc :$port x $count\n";
+		}
+	}
+	$cycle++;
+	if ($cycle == 5) {
+		$cycle = 0;
+	}
+	sleep 1;
+}
+
+sub fill_acpi
+{
+	my @acpi = `acpi -bt`;
+	my $batt_status = $acpi[0];
+	$batt_status =~ s/.*: //;
+	$batt_status =~ s/,.*//;
+	chomp($batt_status);
+	my $batt_level  = $acpi[0];
+	$batt_level =~ s/.*?,//;
+	$batt_level =~ s/,.*//;
+	chomp($batt_level);
+	my $thermal     = $acpi[1];
+	$thermal =~ s/.*, //;
+	$thermal =~ s/ .*//;
+	chomp($thermal);
+
+	return ($batt_status, $batt_level, $thermal);
+}
+
+sub fill_conns
+{
+	my $limit = $Rows - 6;
+	my @netstat = `sudo netstat -pant | grep EST`;
+	my @netdata;
+	foreach $conn (@netstat) {
+		my $ip = $conn;
+		$ip =~ s/.*?:.*? +//;
+		$ip =~ s/:.*//;
+		chomp($ip);
+		my $port = $conn;
+		$port =~ s/.*://;
+		$port =~ s/ .*//;
+		chomp($port);
+		my $proc = $conn;
+		$proc =~ s#.*/##;
+		$proc =~ s/ .*//;
+		chomp($proc);
+
+		my $new_entry = 1;
+		foreach (@netdata) {
+			if ($_->{proc} =~ m/$proc/ && $_->{port} =~ m/$port/) {
+				$_->{count}++;
+				$new_entry = 0;
+			}
+		}
+		if ($new_entry == 1 && @netdata < $limit) {
+			push(@netdata,{ip=>$ip, port=>$port, proc=>$proc,
+					count=>1});
+		}
+	}
+	@netdata = sort { $a->{port} <=> $b->{port} } @netdata;
+	return @netdata;
+}
+
+sub battery_color
+{
+	my $status = shift;
+	my $level  = shift;
+	my $color;
+	if ($status =~ /Full/) {
+		$color = 'bold';
+	} elsif ($status =~ /Unknown/) {
+		$color = 'blue';
+	} elsif ($status =~ /Charging/) {
+		$color = 'bold green';
+	} elsif ($level <= 10) {
+		$color = 'red on_blue';
+	} elsif ($level >= 65) {
+		$color = 'green';
+	} elsif ($level >= 40) {
+		$color = 'bold yellow';
+	} elsif ($level >= 30) {
+		$color = 'red';
+	} else {
+		$color = 'bold red';
+	}
+	return $color;
+}
+
+sub thermal_color
+{
+	my $thermal = shift;
+	my $color;
+	if ($thermal <= 46) {
+		$color = 'blue';
+	} elsif ($thermal <= 52) {
+		$color = 'bold green';
+	} elsif ($thermal <= 56) {
+		$color = 'green';
+	} elsif ($thermal <= 60) {
+		$color = 'bold yellow';
+	} else {
+		$color = 'red';
+	}
+	return $color;
+}
+
+sub print_battery_bar
+{
+	my $status = shift;
+	my $level  = shift;
+	my $reallevel = shift;
+	$reallevel =~ s/^ //;
+	my $sym = '|';
+	if ($status =~ m/full/i) {
+		$sym = '~';
+		$level = 100;
+	} elsif ($status =~ m/dis/i) {
+		$sym = '<';
+	} elsif ($status =~ m/charg/i) {
+		$sym = '>';
+	}
+
+	print color 'reset';
+	print '[';
+	print color battery_color($status, $level);
+
+	for my $i (0 .. $Bar_size) {
+		my $per = (100 * $i) / $Bar_size;
+		if ($per <= $level) {
+			print "$sym";
+		} else {
+			print " ";
+		}
+	}
+	print color 'reset';
+	print "]";
+	print color battery_color($status, $level);
+	if ($status =~ /Full/) {
+		$level = "AC";
+	}
+	print " $reallevel\n";
+	print color 'reset';
+}

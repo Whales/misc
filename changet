@@ -1,0 +1,90 @@
+#!/usr/bin/perl
+
+use LWP;
+
+########## CONFIG OPTIONS ##############
+
+# wget options.  -nv suppresses most output.
+my $opts = "-nv";
+# Change this to select a default folder ("." defaults to current folder)
+my $folder = ".";
+my $usage = "\
+Usage: $0 <url> [dir]\
+<url> must be a 4chan thread.\
+[dir] is an optional directory to save images in.\
+If no directory is specified, images will be saved in '$folder'\
+Otherwise, the script will attempt to create [dir] if necessary.\
+\n";
+
+if ($#ARGV < 0) {
+	print $usage;
+	exit;
+}
+if ($#ARGV > 0) {
+	$folder = $ARGV[1];
+	$folder =~ s/\/$//g;
+	if (!(-d $folder)) {
+		system("mkdir $folder");
+		if (!(-d $folder)) {
+			print "$folder does not exist and cannot be created.\n";
+			exit;
+		}
+	}
+}
+
+my $url = $ARGV[0];
+my $b = LWP::UserAgent->new;
+my $results = $b->get($url);
+if (!($results->is_success)) {
+	print $results->status_line . "\n$usage";
+	exit;
+}
+my $page = $results->content;
+
+my @links;
+foreach (split(/\n/, $page)) {
+	if (m/images\.4chan/) {
+		s#.*(http://images\.4chan.*?)".*#$1#;
+		push(@links, $_);
+	}
+}
+my $numlinks = @links;
+print "$numlinks found...\n";
+
+my $num = 0;
+my $skipped = 0;
+foreach $image (@links) {
+	$num++;
+
+	my $filename = $image;
+	$filename =~ s/.*src.//;
+	my $fullname;
+	if ($folder =~ /^\.$/) {
+		$fullname = $filename;
+	} else {
+		$fullname = "$folder/$filename";
+	}
+
+	my $retcode;
+	if (-e $fullname) {
+		if ($skipped != 0) {	# Skipped the last one; reduce spam
+			print ".";
+		} else {
+			print "$fullname exists; skipping.\n";
+		}
+		$skipped++;
+	} else {
+		if ($skipped != 0) {
+			print "\n$skipped files skipped.\n";
+			$skipped = 0;
+		}
+		$retcode = system("wget $opts -O '$fullname' '$image'");
+		print "Saved $fullname ($num of $numlinks)\n";
+	}
+
+	if ($retcode & 127) {
+		print "\nOperation canceled; partial file $fullname removed.\n";
+		system("rm '$fullname'");
+		exit;
+	}
+}

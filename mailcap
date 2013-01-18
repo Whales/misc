@@ -1,0 +1,4 @@
+application/zip;unzip %s
+application/mpegurl;m3uplay %s
+audio/mpeg;mplayer %s
+

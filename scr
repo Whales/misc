@@ -1,0 +1,14 @@
+#!/usr/bin/perl
+our $HOME	= $ENV{'HOME'};
+our $SHELL	= $ENV{'SHELL'};
+our $TTY = `tty`; chomp $TTY;
+
+if ($TTY =~ m/tty[14]/) {
+	system("screen -S scr -c $HOME/.screenrc_grid");
+} elsif ($TTY =~ m/tty2/) {
+	system("screen -S util -c $HOME/.screenrc_util");
+} elsif ($TTY =~ m/pts/) {
+	system("/bin/bash");
+} else {
+	system("/bin/bash");
+}

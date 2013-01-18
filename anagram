@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+use LWP;
+
+our $Name = "anagram";
+our $Usage = "\
+Usage: $Name [OPTION] <word>\
+Find anagrams of <word>.\
+\n";
+
+my $url = "http://wordsmith.org/anagram/anagram.cgi?anagram=";
+my $term = "";
+my $flags = "&t=20";
+
+foreach (@ARGV) {
+	if (m/^-/) {
+#TODO: flags
+	} else {
+		$term .= "$_+";
+	}
+}
+
+$term =~ s/\+$//;
+
+$url .= "$term$flags";
+
+my $B = LWP::UserAgent->new;
+my $results = $B->get($url);
+my $page = $results->content;
+
+if ($page =~ m/no anagrams/i) {
+	print "No anagrams found.\n";
+	exit;
+}
+$page =~ s/.*Displaying .*?<br>//s;
+$page =~ s/\s*<bottomlinks>.*//s;
+
+my @anagrams = split(/<br>\n?/, $page);
+my $count = @anagrams;
+my $index = int(rand($count));
+print $anagrams[$index] . "\n";

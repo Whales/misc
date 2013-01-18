@@ -1,0 +1,35 @@
+#!/usr/bin/perl
+
+my $vton = "sudo openvt -sw --";
+my $mplayer = "mplayer -really-quiet -vo fbdev2 -vf scale=WIDTH:HEIGHT";
+my $vtoff = "sudo deallocvt";
+
+my $fbdata = `fbset -s | grep ^mode`;
+my $fbwidth  =  $fbdata;
+   $fbwidth  =~ s/.*"(.*?)x.*/$1/;
+my $fbheight =  $fbdata;
+   $fbheight =~ s/.*x(.*?)".*/$1/;
+my $files;
+foreach $file (@ARGV) {
+	my $outwidth;
+	my $outheight;
+	my $filedata = `file "$file"`;
+	my $width  = $filedata;
+	my $height = $filedata;
+	$width  =~ s/.*:.*?(\d+) x.*/$1/;
+	$height =~ s/.*:.*?(\d+) x (\d+).*/$2/;
+	my $widthratio = $fbwidth / $width;
+	my $heightratio = $fbheight / $height;
+	if ($widthratio < $heightratio) {
+		$outwidth  = int($width  * $widthratio);
+		$outheight = int($height * $widthratio);
+	} else {
+		$outwidth  = int($width  * $heightratio);
+		$outheight = int($height * $heightratio);
+	}
+	my $command = "$vton $mplayer '$file'";
+	$command =~ s/WIDTH/$outwidth/g;
+	$command =~ s/HEIGHT/$outheight/g;
+	system("$command");
+	system("$vtoff");
+}

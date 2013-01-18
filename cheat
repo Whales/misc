@@ -1,0 +1,22 @@
+#!/bin/sh
+
+if [ $# -eq 0 ] ; then
+	echo "Valid options:"
+	ls /usr/local/etc/cheat
+	exit
+fi
+
+if [ ! -e "/usr/local/etc/cheat/$1" ] ; then
+	echo "Invalid cheat file: '$1'";
+	echo "Valid options:"
+	ls /usr/local/etc/cheat
+	exit
+fi
+
+if [ $# -eq 1 ] ; then
+	less "/usr/local/etc/cheat/$1"
+	exit
+fi
+
+less "-p$2" "/usr/local/etc/cheat/$1";
+

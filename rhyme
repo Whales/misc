@@ -1,0 +1,34 @@
+#!/usr/bin/perl
+use LWP;
+
+my $word = $ARGV[0];
+my $url = "http://www.rhymezone.com/r/rhyme.cgi?Word=$word&typeofrhyme=perfect&org1=syl";
+my $b = LWP::UserAgent->new;
+my $results = $b->get($url);
+my $page = $results->content;
+if ($page =~ m/no perfect rhymes were/ || $page !~ m/that rhyme with/) {
+ print "NULL\n";
+ exit;
+}
+$page =~ s/^.*rhyme with.*?:<br>//s;
+$page =~ s/(.*?)<br><br><center>.*/$1/s;
+$page =~ s/<A .*?>//sg;
+$page =~ s/&nbsp;/ /sg;
+$page =~ s/<\/A>,?//sg;
+$page =~ s/<b.*\n//g;
+$page =~ s/\n\s*\n/\n/sg;
+my @list = split(/\n/, $page);
+my $count = @list;
+my $index = int(rand($count));
+my $word;
+my $tries = 0;
+do {
+ $word = $list[$index];
+ $word =~ s/ $//;
+ $tries++;
+} while ($word =~ m/^\s*$/ && $tries < 3);
+if ($tries == 3 && $word =~ m/^\s*$/) {
+ print "NULL\n";
+ exit;
+}
+print "$word\n";

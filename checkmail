@@ -1,0 +1,288 @@
+#!/usr/bin/perl
+use Net::IMAP::Simple::SSL;
+use Email::Simple;
+use Term::ANSIColor;
+use Term::ReadKey;
+our $HOME	= $ENV{'HOME'};
+
+sub get_dates;     # Get today and yesterday's dates
+sub init_mail;     # Init our IMAP accounts from ~/.checkmail
+sub alert;         # Alert the user to a new message
+sub print_message; # Print a given email message's header
+sub update_data;   # Update ~/.checkmail with the most-recently-seen message
+sub get_action;    # Input a character until it matches a %Action
+sub do_action;     # Do the action passed
+
+# How many seconds to wait between refreshes
+our $Refresh = 60;
+# The maximum number of new messages to display
+our $Max_new_messages = 3;
+# The colors to use when printing a message
+our %Colors = (
+	acct => 'red',
+	date => 'green',
+	from => 'blue',
+	subj => 'reset',
+	formatting => 'reset', # Color for formatting chars; see %Formatting
+);
+# Formatting to print after each section when printing a message
+our %Formatting = (
+	date => ' | ',
+	from => ': ',
+	subj => '',
+);
+# Actions when there's new email
+our %Actions = (
+	View => {
+		 type   => 'external',
+		 action => 'default_browser',
+		},
+	Mark => {
+		 type   => 'IMAP',
+		 action => 'see %l',
+		},
+	Quit => {
+		 type   => 'flow',
+		 action => 'quit',
+		},
+);
+	
+
+our ($ttyY, $ttyX) = split(/ /, `stty size`);
+our ($Today, $Yesterday, $Time) = get_dates();
+my ($names_ref, $mail_ref, $newest_ref) = init_mail();
+my @names  = @$names_ref;
+my @mail   = @$mail_ref;
+my @newest = @$newest_ref;
+
+my @emails;
+foreach (@mail) {
+	my $last = $_->last;
+	my $email = Email::Simple->new( join '', @{ $_->top($last) } );
+	push (@emails, $email);
+}
+
+my $active = 1;
+while ($active) {
+	system("clear");
+	print "Last refresh: $Time\n";
+	for ($i = 0; $i < @mail; $i++) {
+		$mail[$i]->select('INBOX');
+		my $newmes = $mail[$i]->last;
+		print color "$Colors{'acct'}";
+		print "$names[$i]:\n";
+		print color 'reset';
+
+		if ($newmes != $newest[$i]) {
+			$emails[$i] = Email::Simple->new(
+				join ('', @{ $mail[$i]->top($newmes) } )
+			);
+		} else {
+			print_message($emails[$i]);
+		}
+
+		if ($mail[$i]->seen($newmes)) {
+			update_data($i, $newmes);
+			$newest[$i] = $newmes;
+		} elsif ($newmes != $newest[$i]) {
+			$active = alert($mail[$i], $newest[$i]);
+			update_data($i, $newmes);
+			$newest[$i] = $newmes;
+		}
+	}
+	if ($active) {
+		sleep $Refresh;
+		($Today, $Yesterday, $Time) = get_dates();
+	}
+}
+foreach (@mail) {
+	$_->quit;
+}
+
+sub get_dates {
+	my $today = `date -R`;
+	$today =~ s/ 0/ /g;
+	$today =~ s/ ..:.*//;
+	my $yesterday = `date --date=yesterday -R`;
+	$yesterday =~ s/ 0/ /g;
+	$yesterday =~ s/ ..:.*//;
+	my $time = `date +'%k:%M'`;
+	chomp $today;
+	chomp $yesterday;
+	return $today, $yesterday, $time;
+}
+
+sub init_mail {
+	my @names;
+	my @mail;
+	my @newest;
+	open CONFIG, "$HOME/.checkmail" or die $!;
+	while (<CONFIG>) {
+		chomp;
+		my @cfgdat = split(' ');
+		if (@cfgdat < 3) {
+			print "Malformed line in ~/.checkmail:\n$_\n";
+			exit 64;
+		}
+		if (@cfgdat == 4) {
+			push(@newest, $cfgdat[3]);
+		} else {
+			push(@newest, -1);
+		}
+		my $account = Net::IMAP::Simple::SSL->new("$cfgdat[0]") or
+			die "Unable to connect to $cfgdat[0]\n";
+		if (!$account->login("$cfgdat[1]", "$cfgdat[2]")) {
+			print "Login failed for $cfgdat[1]:\n".
+			$imap->errstr . "\n";
+			exit 64;
+		}
+		$account->select('INBOX');
+		push (@mail, $account);
+		my $name = $cfgdat[1];
+		$name =~ s/@.*//;
+		push (@names, $name);
+	}
+	return (\@names, \@mail, \@newest);
+}
+
+sub alert { 
+	my $account = shift;
+	my $lastseen = shift;
+	my $cur = $account->last;
+	my @messages;
+	do {
+		if (!$account->seen($cur)) {
+			push (@messages, $cur);
+		}
+		$cur--;
+	} while (@messages < $Max_new_messages && $cur > $lastseen);
+
+	foreach (@messages) {
+		my $mes = Email::Simple->new(join '', @{ $account->top($_) } );
+		print_message($mes);
+	}
+
+# Print action options
+	while ( my ($key, $value) = each(%Actions) ) {
+		print color 'red';
+		print substr($key, 0, 1);
+		print color 'reset';
+		print substr($key, 1) . ' ';
+	}
+	print ": ";
+	my $choice = get_action();
+	my $ret = do_action($choice, $account);
+	return $ret;
+}
+
+sub print_message {
+	my $mes = shift;
+	my $from = $mes->header('From');
+	$from =~ s/<.*@(.*?)\.[\w\d]+>/<$1>/;
+	$from =~ s/<.*\./</;
+	my $subj = $mes->header('Subject');
+	my $date = $mes->header('Date');
+	$date =~ s/ ..:.*//;
+
+	print color "$Colors{'date'}";
+	if ($date =~ /$Today/) {
+		my $time = $mes->header('Date');
+		$time =~ s/.*(..:..):.. .*/$1/;
+		$date = "Today, $time";
+	} elsif ($date =~ /$Yesterday/) {
+		$date = "Yesterday";
+	}
+	print $date;
+	print color "$Colors{'formatting'}";
+	print $Formatting{'date'};
+	print color "$Colors{'from'}";
+	print $from;
+	print color "$Colors{'formatting'}";
+	print $Formatting{'from'};
+	print color "$Colors{'subj'}";
+
+	my $chars_left = $ttyX - length($date) - length($Formatting{'date'}) -
+		length($from) - length($Formatting{'from'});
+	print substr($subj, 0, $chars_left);
+	print "\n";
+	print color 'reset';
+}
+
+sub update_data
+{
+	my $line = shift;
+	my $newest = shift;
+	open CONFIG, "$HOME/.checkmail" or die $!;
+	my @config = <CONFIG>;
+	close CONFIG;
+	chomp ($config[$line]);
+	$config[$line] =~ s/\s*\d+\s*$//;
+	$config[$line] .= " $newest\n";
+	open CONFIG, ">$HOME/.checkmail" or die $!;
+	print CONFIG @config;
+	close CONFIG;
+}
+
+sub get_action
+{
+	my $choice;
+	my $choosing = 1;
+	ReadMode 4;
+	do {
+		$choice = ReadKey(0);
+		$choice = uc( $choice );
+		while ( my($key, $value) = each(%Actions) ) {
+			if ($choice == substr($key, 0, 1)) {
+				$choosing = 0;
+				break;
+			}
+		}
+	} while ($choosing);
+	ReadMode 0;
+}
+
+sub do_action
+{
+	my $act = shift;
+	my $account = shift;
+	my $type, $action;
+	while ( my($key, $value) = each(%Actions) ) {
+		if ($choice == substr($key, 0, 1)) {
+			$type   = $Actions{$key}{'type'};
+			$action = $Actions{$key}{'action'};
+			break;
+		}
+	}
+	if ($type == 'flow') {
+		if ($action == 'quit') {
+			return 0;
+		}
+		die "Undefine flow control $action";
+	}
+	if ($type == 'IMAP') {
+		my $num = -1;
+		if ($action =~ /%l/) {
+			$num = $account->last;
+		}
+		if ($num == -1)  {
+			my $err = $action;
+			$err =~ s/.*(%.).*/$1/;
+			die "ERROR: Unrecognized numeral $err!" .
+				"  Press any key...";
+		}
+		$action =~ s/ *%.//;
+		$account->$action($num);
+		return 1;
+	}
+	if ($type == 'external') {
+		system($action);
+		return 1;
+	}
+
+	system("clear");
+	print "ERROR: Unrecognized action type $type!" .
+		"  Press any key...";
+	ReadKey(0);
+	system("clear");
+	return 1;
+}

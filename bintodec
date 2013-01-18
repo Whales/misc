@@ -1,0 +1,12 @@
+#!/usr/bin/perl
+
+my $bin = $ARGV[0];
+my $dec = 0;
+my $length = length($bin);
+for $i (0 .. $length - 1) {
+	my $digit = substr($bin, $i, 1);
+	if ($digit == '1') {
+		$dec += 2 ** ($length - 1 - $i);
+	}
+}
+print "$dec\n";

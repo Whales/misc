@@ -1,0 +1,267 @@
+#!/usr/bin/perl
+use LWP;
+use WWW::Wikipedia;
+use HTML::Entities;
+
+our $Usage = "\
+Usage: define [OPTION] <term>\
+Fetch definition or other information of <term>\
+-n<num>     Display definition number <num> (default is 1)\
+-N          Display number of definitions and nothing else\
+--noun\
+--verb\
+--adj       Find a definition that is a noun, verb, or adjective\
+-e          Display etymology of <term>, if available\
+-t          List thesaurus entries for <term>\
+-T          Print a random thesaurus entry for <term>\
+-w          Display abbreviated Wikipedia entry for <term>\
+-u          Display definitions from the Urban Dictionary\
+-h          Print this help message\
+\n";
+
+sub noResult {
+	my $term = shift;
+	$term =~ s/\+/ /g;
+	print "\"$term\" not found.\n";
+	exit;
+}
+
+my $term = "";
+my $defNum = 1;
+my $random = 0;
+my $partOfSpeech = "any";
+my $type = "definition";
+my $Browser = LWP::UserAgent->new;
+
+foreach (@ARGV) {
+	if (m/^--/) {
+		s/--//;
+		if (m/^noun$/) {
+			$partOfSpeech = "noun";
+		} elsif (m/^verb$/) {
+			$partOfSpeech = "verb";
+		} elsif (m/^adj$/) {
+			$partOfSpeech = "adjective";
+		} else {
+			print "Unknown part of speech: $_\n";
+			print "Use --noun, --verb, or --adj\n";
+			exit;
+		}
+	} elsif (m/^-/) {
+		if (m/h/) {
+			print $Usage;
+			exit;
+		}
+		if (m/n/) {
+			s/\D//g;
+			$defNum = $_;
+		}
+		if (m/N/) {
+			$type = "number";
+		} elsif (m/e/) {
+			$type = "etymology";
+		} elsif (m/w/) {
+			$type = "wikipedia";
+		} elsif (m/t/i) { # t or T
+			$type = "thesaurus";
+		} elsif (m/u/) {
+			$type = "urbandict";
+		}
+		if (m/T/) { # Random thesaurus entry
+			$random = 1;
+		}
+	} else {
+		$term .= "$_+";
+	}
+}
+
+if ($term =~ /^$/) {
+	print $Usage;
+	exit;
+}
+
+$term =~ s/\+$//;
+$term =~ s/ /+/g;
+
+unless ($defNum >= 1) {
+	print $Usage;
+	exit;
+}
+
+if ($type =~ /wikipedia/) {
+	$URL = "http://www.wikipedia.org/w/index.php?search=$term";
+} elsif ($type =~ /urbandict/) {
+	$URL = "http://www.urbandictionary.com/define.php?term=$term";
+} elsif ($type =~ /thesaurus/) {
+	$URL = "http://thesaurus.com/browse/$term";
+} else {
+	$URL = "http://www.dictionary.reference.com/browse/$term";
+}
+
+my $results = $Browser->get($URL);
+my $page = $results->content;
+
+if ($type =~ /number/) {
+
+	unless ($page =~ /dndata/) {
+		noResult($term);
+	}
+	$page =~ s/.*?div class="body">(.*?)<div class="Lsentnce.*/$1/s;
+
+	unless ($partOfSpeech =~ /any/) {
+		unless ($page =~ /"pg">.{3}$part/s) {
+			$term =~ s/\+/ /g;
+			print "\"$term\" cannot be used as ";
+			if ($partOfSpeech =~ /adj/) {
+				print "an adjective.\n";
+			} else {
+				print "a $partOfSpeech.\n";
+			}
+			exit;
+		}
+		$page =~ s/.*?"pg">.{3}$partOfSpeech(.*?)<span class="pg"/$1/s;
+# Fix $defNum so it starts from the first definition with the correct POS
+	}
+
+	my $count = ($page =~ s/dnindex/dnindex/g);
+	$term =~ s/\+/ /g;
+	print "$term has $count definitions";
+	unless ($partOfSpeech =~ /any/) {
+		if ($partOfSpeech =~ /adj/) {
+			print " as an adjective";
+		} else {
+			print " as a $partOfSpeech";
+		}
+	}
+	print ".\n";
+	exit;
+
+} elsif ($type =~ /definition/) {
+
+	unless ($page =~ /dndata/ && $page =~ /dnindex/) {
+		noResult($term);
+	}
+	$page =~ s/.*?div class="body">(.*?)<div class="Lsentnce.*/$1/s;
+
+	my $part = $partOfSpeech;
+	my $firstDef = 1;
+	if ($partOfSpeech =~ /any/) {
+		my $partPage = $page;
+		$partPage =~ s/.*?span class="pg">//s;
+		$part = $partPage;
+		$part =~ s/(.*?)<.*/$1/;
+		while ($partPage =~ /class="pg".*dnindex">$defNum\./) {
+			$part = $partPage;
+			$part =~ s/(.*?)<.*/$1/;
+			$partPage =~ s/.*?span class="pg">//s;
+		}
+		$part =~ s/\n.*//s;
+		$part =~ s/\W//g;
+	} else {
+		unless ($page =~ /"pg">.{3}$part/s) {
+			$term =~ s/\+/ /g;
+			print "\"$term\" cannot be used as ";
+			if ($partOfSpeech =~ /adj/) {
+				print "an adjective.\n";
+			} else {
+				print "a $partOfSpeech.\n";
+			}
+			exit;
+		}
+		$page =~ s/.*?"pg">.{3}$partOfSpeech(.*?)<span class="pg"/$1/s;
+# Fix $defNum so it starts from the first definition with the correct POS
+		$firstDef = $page;
+		$firstDef =~ s/.*?dnindex">(\d+).*/$1/s;
+		$defNum += ($firstDef - 1);
+	}
+
+	unless ($page =~ /dnindex">$defNum\./) {
+		my $count = ($page =~ s/dnindex/dnindex/gs);
+		$defNum -= ($firstDef - 1);
+		$term =~ s/\+/ /g;
+		print "Definition $defNum not found; there are $count available.\n";
+		exit;
+	}
+
+	$page =~ s/.*?dnindex">$defNum.*?dndata">(.*?)<\/div.*/$1/s;
+	$page =~ s/\n//gs;
+	$page =~ s/<.*?>//g;
+	$page =~ s/\s+/ /g;
+	$term =~ s/\+/ /g;
+	$part =~ s/used ?with ?object/ (transitive)/;
+	$part =~ s/used ?without ?object/ (intransitive)/;
+	$page = "$term - $part - $page";
+
+} elsif ($type =~ /wikipedia/) {
+
+	my $wiki = WWW::Wikipedia->new();
+	$term =~ s/\+/ /g;
+	my $result = WWW::Wikipedia::Entry->new();
+	$result = $wiki->search( $term ) or die ("No result for $term.\n");
+	unless ($result->text()) {
+		noResult($term);
+	}
+	$page = $result->text();
+	$page =~ s/<.*?>//sg;
+	$page =~ s/\[\[.*?\]\]//sg;
+	$page =~ s/\{\{.*?\}\}//sg;
+	$page =~ s/.*?(\W?\w)/$1/s;
+	$page =~ s/\n\n.*//s;
+	$page =~ s/\n/ /gs;
+	$page =~ s/(.*?\..*?\.).*/$1/s;
+	$page =~ s/\. /.  /;
+	$page =~ s/.*\]\]//s;
+	$page =~ s/^\s+//s;
+
+} elsif ($type =~ /etymology/) {
+
+	unless ($page =~ /dndata/) {
+		noResult($term);
+	}
+	unless ($page =~ /class="ety"/) {
+		$term =~ s/\+/ /g;
+		print "No etymology available for \"$term.\"\n";
+		exit;
+	}
+
+	$page =~ s/.*?class="ety">(.*?)<span class="sectionLabel">.*/$1/s;
+	$page =~ s/\n//gs;
+	$page =~ s/<.*?>//g;
+	$page =~ s/  +/ /g;
+
+} elsif ($type =~ /thesaurus/) {
+
+	unless ($page =~ /Synonyms:/) {
+		noResult($term);
+	}
+
+	$page =~ s/.*?Synonyms:(.*?)<\/span>.*/$1/s;
+	$page =~ s/\n//gs;
+	$page =~ s/<.*?>//g;
+	$page =~ s/, */, /g;
+	$page =~ s/\*//g;
+
+	if ($random) {
+		my @synonyms = split(/, */, $page);
+		my $num = @synonyms;
+		my $index = rand($num);
+		$page = $synonyms[$index];
+	}
+
+} elsif ($type =~ /urbandict/) {
+	unless ($page =~ /definition/) {
+		noResult($term);
+	}
+	$page =~ s/.*?definition">(.*?)<.*/$1/s;
+	decode_entities($page);
+	chomp($page);
+
+} else {
+
+	print "Bad type $type\n";
+	exit;
+
+}
+
+decode_entities($page);
+print "$page\n";

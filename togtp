@@ -1,0 +1,11 @@
+#!/usr/bin/perl
+
+my $device = 'FSPPS/2 Sentelic FingerSensingPad';
+my $state = `xinput -list-props "$device" | grep 'Device Enabled'`;
+$state =~ s/.*:\s*//;
+
+if ($state == 1) {
+	system("xinput --set-prop '$device' 135 0");
+} else {
+	system("xinput --set-prop '$device' 135 1");
+}

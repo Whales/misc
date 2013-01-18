@@ -1,0 +1,7 @@
+#!/bin/bash
+
+if [ $DISPLAY ]; then
+	xterm -geometry 60x4 -e mplayer -playlist $1
+else
+	screen mplayer -playlist $1
+fi

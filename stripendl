@@ -1,0 +1,14 @@
+#!/usr/bin/perl
+
+my $replacement = " ";
+if (@ARGV > 0) {
+	$replacement = $ARGV[0];
+	@ARGV = ();
+}
+my $output;
+foreach (<>) {
+	chomp;
+	$output .= "$_$replacement";
+}
+$output =~ s/$replacement$//;
+print "$output\n";
