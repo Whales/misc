@@ -231,15 +231,19 @@ if ($type =~ /number/) {
 
 } elsif ($type =~ /thesaurus/) {
 
-	unless ($page =~ /Synonyms:/) {
+	unless ($page =~ /relevancy-list/) {
 		noResult($term);
 	}
 
-	$page =~ s/.*?Synonyms:(.*?)<\/span>.*/$1/s;
-	$page =~ s/\n//gs;
-	$page =~ s/<.*?>//g;
-	$page =~ s/, */, /g;
-	$page =~ s/\*//g;
+	$page =~ s/.*?relevancy-list">(.*?)synonyms-horizontal.*/$1/s;
+	#$page =~ s/\n/,/gs;
+  $page =~ s/star//gs;
+	$page =~ s/<.*?>//gs;
+  $page =~ s/\s+/, /gs;
+  $page =~ s/ , / /g;
+  $page =~ s/<div.*//;
+  $page =~ s/^, //;
+  $page =~ s/, $//;
 
 	if ($random) {
 		my @synonyms = split(/, */, $page);
