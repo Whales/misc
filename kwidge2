@@ -5,21 +5,21 @@ use Term::ReadKey;
 our $PROGRAM = 'kwidge';
 # What's our environment like?
 our ($ROWS, $COLS) = split(/ /, `/bin/stty size`);
-our $HOME	= $ENV{'HOME'};
-our $CONFIG	= "$HOME/.$PROGRAM"."rc";
+our $HOME  = $ENV{'HOME'};
+our $CONFIG  = "$HOME/.$PROGRAM"."rc";
 # Default widgets, in case $CONFIG is corrupted (default data is in %Widgets)
 our @DEFAULT_WIDGETS = ("battery","temp","date","connections");
 
 # Subroutines used by status directly
-sub loadSettings;	  # Load settings from $CONFIG
-sub saveSettings;	  # Save settings to $CONFIG
-sub firstConfig;	  # If $CONFIG doesn't exist, introduce and configSettings
-sub configSettings;	# Configure settings
-sub addWidget;		  # Add a widget
-sub editWidget;		  # Edit a widget's settings
-sub removeWidget;	  # Remove a widget
-sub mainLoop;		    # Main program loop
-sub error;		      # Quit with an error message
+sub loadSettings;    # Load settings from $CONFIG
+sub saveSettings;    # Save settings to $CONFIG
+sub firstConfig;     # If $CONFIG doesn't exist, introduce and configSettings
+sub configSettings;  # Configure settings
+sub addWidget;       # Add a widget
+sub editWidget;      # Edit a widget's settings
+sub removeWidget;    # Remove a widget
+sub mainLoop;        # Main program loop
+sub error;           # Quit with an error message
 
 # Widget output subroutines
 sub wgtBattery;     # Battery status      (requires acpi)
@@ -31,179 +31,179 @@ sub wgtNmap;        # Devices on network  (requires nmap)
 
 # List of all available widgets; not necessarily those used
 # Each widget needs:
-#	- A user-facing name
-#	- A function reference (which should be listed at the top of this file)
-#	- A minimum and maximum size; the number of rows it'll occupy
-#	- A refresh frequency (in seconds)
-#	- A set of variables, each of which has:
-#		- A user-facing name
-#		- A default value
-#		- A format, which can be:
-#			- A comma-delimited list ("celcius,fahrenheit")
-#			- The same, with a + prefix, denotes that multiple list
-#			  members may be used ("+wlan0,wlan1,eth0")
-#			- A numerical range ("1-100")
-#			- "bool" for a boolean (stored as 0 or 1)
-#			- "str" for any string (DEFAULT)
+#  - A user-facing name
+#  - A function reference (which should be listed at the top of this file)
+#  - A minimum and maximum size; the number of rows it'll occupy
+#  - A refresh frequency (in seconds)
+#  - A set of variables, each of which has:
+#    - A user-facing name
+#    - A default value
+#    - A format, which can be:
+#      - A comma-delimited list ("celcius,fahrenheit")
+#      - The same, with a + prefix, denotes that multiple list
+#        members may be used ("+wlan0,wlan1,eth0")
+#      - A numerical range ("1-100")
+#      - "bool" for a boolean (stored as 0 or 1)
+#      - "str" for any string (DEFAULT)
 our %Widgets = (
-	extern => { # This data is copied to new extern widgets
-		name => "External command",
-		function => \&wgtExtern,
-		minSize => 1,
-		maxSize => 1,
-		refresh => 10,
-		vars => {
-			command => {
-				name => "Command to run",
-				value => "echo 'Hello, $PROGRAM!'",
-				format => "str",
-			},
-			shell => {
-				name => "Shell to run command in (or '')",
-				value => "/bin/sh",
-				format => "str",
-			},
-		},
-	},
-	battery => {
-		name => "Battery",
-		function => \&wgtBattery,
-		minSize => 2,
-		maxSize => 2,
-		refresh => 10,
-		vars => {
-			medium => {
-				name => "Medium battery %",
-				value => 75,
-				format => "1-100",
-			},
-			low => {
-				name => "Low battery %",
-				value => 35,
-				format => "1-100",
-			},
-			critical => {
-				name => "Critical battery %",
-				value => 12,
-				format => "1-100",
-			},
-		},
-	},
-	temp => {
-		name => "Temperature",
-		function => \&wgtTemperature,
-		minSize => 1,
-		maxSize => 1,
-		refresh => 10,
-		vars => {
-			scale => {
-				name => "Scale",
-				value => "C",
-				format => "C,F",
-			},
-			warning => {
-				name => "Warn if above",
-				value => 60,
-				format => "20-100",
-			},
-			hot => {
-				name => "Hot if above",
-				value => 56,
-				format => "20-100",
-			},
-			warm => {
-				name => "Warm if above",
-				value => 50,
-				format => "20-100",
-			},
-			cold => {
-				name => "Cold if below",
-				value => 43,
-				format => "20-80",
-			},
-		},
-	},
-	date => {
-		name => "Date",
-		function => \&wgtDate,
-		minSize => 1,
-		maxSize => 1,
-		refresh => 1,
-		vars => {
-			hourFormat => {
-				name => "Hour format",
-				value => "12H",
-				format => "12H,24H",
-			},
-			dateFormat => {
-				name => "Date format",
-				value => "long",
-				format => "long,short,none",
-			},
-		},
-	},
-	connections => {
-		name => "Network Connections",
-		function => \&wgtConns,
-		minSize => 0,
-		maxSize => 5,
-		refresh => 5,
-		vars => {
-			condense => {
-				name => "One line per process/port",
-				value => 1,
-				format => "bool",
-			},
-		},
-	},
-	network => {
-		name => "Network Status",
-		function => \&wgtNetwork,
-		minSize => 1,
-		maxSize => 4,
-		refresh => 15,
-		vars => {
-			wifi => {
-				name => "Wireless interfaces",
-				value => "wlan0",
-				format => "str",
-			},
-			eth => {
-				name => "Ethernet interfaces",
-				value => "",
-				format => "str",
-			},
-			iwdata => {
-				name => "Wireless information",
-				value => "essid,quality",
-				format => "+essid,frequency,AP,quality,signal,noise",
-			},
-			ifdata => {
-				name => "Interface information",
-				value => "short ip",
-				format => "+mac,short ip,ip,bcast,rx bytes,tx bytes",
-			},
-		},
-	},
-	nmap => {
-		name => "Network Scanner",
-		function => \&wgtNmap,
-		minSize => 1,
-		maxSize => 8,
-		refresh => 60,
-		vars => {
-			iface => {
-				name => "Interface to scan on",
-				value => "wlan0",
-				format => "str",
-			},
-			pingOnly => {
-				name => "Just ping hosts",
-				value => 1,
-				format => "bool",
-			},
-		},
-	},
+  extern => { # This data is copied to new extern widgets
+    name => "External command",
+    function => \&wgtExtern,
+    minSize => 1,
+    maxSize => 1,
+    refresh => 10,
+    vars => {
+      command => {
+        name => "Command to run",
+        value => "echo 'Hello, $PROGRAM!'",
+        format => "str",
+      },
+      shell => {
+        name => "Shell to run command in (or '')",
+        value => "/bin/sh",
+        format => "str",
+      },
+    },
+  },
+  battery => {
+    name => "Battery",
+    function => \&wgtBattery,
+    minSize => 2,
+    maxSize => 2,
+    refresh => 10,
+    vars => {
+      medium => {
+        name => "Medium battery %",
+        value => 75,
+        format => "1-100",
+      },
+      low => {
+        name => "Low battery %",
+        value => 35,
+        format => "1-100",
+      },
+      critical => {
+        name => "Critical battery %",
+        value => 12,
+        format => "1-100",
+      },
+    },
+  },
+  temp => {
+    name => "Temperature",
+    function => \&wgtTemperature,
+    minSize => 1,
+    maxSize => 1,
+    refresh => 10,
+    vars => {
+      scale => {
+        name => "Scale",
+        value => "C",
+        format => "C,F",
+      },
+      warning => {
+        name => "Warn if above",
+        value => 60,
+        format => "20-100",
+      },
+      hot => {
+        name => "Hot if above",
+        value => 56,
+        format => "20-100",
+      },
+      warm => {
+        name => "Warm if above",
+        value => 50,
+        format => "20-100",
+      },
+      cold => {
+        name => "Cold if below",
+        value => 43,
+        format => "20-80",
+      },
+    },
+  },
+  date => {
+    name => "Date",
+    function => \&wgtDate,
+    minSize => 1,
+    maxSize => 1,
+    refresh => 1,
+    vars => {
+      hourFormat => {
+        name => "Hour format",
+        value => "12H",
+        format => "12H,24H",
+      },
+      dateFormat => {
+        name => "Date format",
+        value => "long",
+        format => "long,short,none",
+      },
+    },
+  },
+  connections => {
+    name => "Network Connections",
+    function => \&wgtConns,
+    minSize => 0,
+    maxSize => 5,
+    refresh => 5,
+    vars => {
+      condense => {
+        name => "One line per process/port",
+        value => 1,
+        format => "bool",
+      },
+    },
+  },
+  network => {
+    name => "Network Status",
+    function => \&wgtNetwork,
+    minSize => 1,
+    maxSize => 4,
+    refresh => 15,
+    vars => {
+      wifi => {
+        name => "Wireless interfaces",
+        value => "wlan0",
+        format => "str",
+      },
+      eth => {
+        name => "Ethernet interfaces",
+        value => "",
+        format => "str",
+      },
+      iwdata => {
+        name => "Wireless information",
+        value => "essid,quality",
+        format => "+essid,frequency,AP,quality,signal,noise",
+      },
+      ifdata => {
+        name => "Interface information",
+        value => "short ip",
+        format => "+mac,short ip,ip,bcast,rx bytes,tx bytes",
+      },
+    },
+  },
+  nmap => {
+    name => "Network Scanner",
+    function => \&wgtNmap,
+    minSize => 1,
+    maxSize => 8,
+    refresh => 60,
+    vars => {
+      iface => {
+        name => "Interface to scan on",
+        value => "wlan0",
+        format => "str",
+      },
+      pingOnly => {
+        name => "Just ping hosts",
+        value => 1,
+        format => "bool",
+      },
+    },
+  },
 );
 
 # MAIN PROGRAM
@@ -217,185 +217,185 @@ mainLoop();
 
 sub loadSettings
 {
-	#print "$CONFIG\n";
-	unless (-e $CONFIG) {
-		firstConfig();
-	}
-	open(CONFIG, "$CONFIG") or die;
-	my $tmpName;
-	my $lineNum = 0;
-	my $tmp = {};	# Temporary widget
-	foreach $line (<CONFIG>) {
-		$lineNum++;
-		chomp($line);
-		$line =~ s/^\s+|\s+$//; # Strip extraneous whitespace
-		if ($line == "end") {
-			push( @ActiveWidgets, %tmp );
-			$tmp = {};
-		} elsif (exists $Widgets{$line} ) {
-			if (exists $tmp{name}) {	# Active widget exists
-				push( @ActiveWidgets, %tmp );
-			}
-			$tmp = $Widgets{ $line };
-			$tmp->{type} => $line;
-		} elsif (exists $tmp{name}) {	# Active widget exists
-			my ($var, $value) = split(/ /, $line);
-			if (exists $tmp->{vars}->{ $var } ) {
-				$tmp->{vars}->{ $var } = $value;
-			} elsif ($tmp->{type} = 'extern' && exists $tmp->{ $var }) {
-				$tmp->{ $var } = $value;
-			}
-		}
-	}
+  #print "$CONFIG\n";
+  unless (-e $CONFIG) {
+    firstConfig();
+  }
+  open(CONFIG, "$CONFIG") or die;
+  my $tmpName;
+  my $lineNum = 0;
+  my $tmp = {};  # Temporary widget
+  foreach $line (<CONFIG>) {
+    $lineNum++;
+    chomp($line);
+    $line =~ s/^\s+|\s+$//; # Strip extraneous whitespace
+    if ($line == "end") {
+      push( @ActiveWidgets, %tmp );
+      $tmp = {};
+    } elsif (exists $Widgets{$line} ) {
+      if (exists $tmp{name}) {  # Active widget exists
+        push( @ActiveWidgets, %tmp );
+      }
+      $tmp = $Widgets{ $line };
+      $tmp->{type} => $line;
+    } elsif (exists $tmp{name}) {  # Active widget exists
+      my ($var, $value) = split(/ /, $line);
+      if (exists $tmp->{vars}->{ $var } ) {
+        $tmp->{vars}->{ $var } = $value;
+      } elsif ($tmp->{type} = 'extern' && exists $tmp->{ $var }) {
+        $tmp->{ $var } = $value;
+      }
+    }
+  }
 }
 
 sub saveSettings
 {
-	open(CONFIG, ">$CONFIG") or die("Couldn't write to $CONFIG");
-	for (my $i = 0; $i < scalar( @ActiveWidgets ); $i++) {
-		my $widget = $ActiveWidgets[$i];
-		print CONFIG "$widget->{type}\n";
-		my $vars = $widget->{vars};
-		while ( my ($key, $value) = each(%$vars) ) {
-			print CONFIG "\t$key $value->{value}\n";
-		}
-		if ($widget->{type} =~ /extern/) { # Save all values
-			print CONFIG "\tminSize $widget->{minSize}\n" .
-			             "\tmaxSize $widget->{maxSize}\n" .
-			             "\trefresh $widget->{refresh}\n";
-		}
-		print CONFIG "end\n\n";
-	}
+  open(CONFIG, ">$CONFIG") or die("Couldn't write to $CONFIG");
+  for (my $i = 0; $i < scalar( @ActiveWidgets ); $i++) {
+    my $widget = $ActiveWidgets[$i];
+    print CONFIG "$widget->{type}\n";
+    my $vars = $widget->{vars};
+    while ( my ($key, $value) = each(%$vars) ) {
+      print CONFIG "\t$key $value->{value}\n";
+    }
+    if ($widget->{type} =~ /extern/) { # Save all values
+      print CONFIG "\tminSize $widget->{minSize}\n" .
+                   "\tmaxSize $widget->{maxSize}\n" .
+                   "\trefresh $widget->{refresh}\n";
+    }
+    print CONFIG "end\n\n";
+  }
 }
 
 sub firstConfig
 {
-	system("clear");
-	print "Looks like this your first time running $PROGRAM.\n" .
-	      "Would you like to configure your widgets? (Y/N/Q)\n:";
-	my $ch = ReadKey(0);
-	if ($ch =~ /y/i) {
-		configSettings();
-	} elsif ($ch =~ /q/i) {
-		system("clear");
-		ReadMode 0;
-		exit;
-	} else {
-		foreach $name (@DEFAULT_WIDGETS) {
-			if (exists $Widgets{ $name }) {
-				my $tmp = $Widgets{ $name };
-				$tmp->{type} = $name;
-				push(@ActiveWidgets, $tmp);
-			}
-		}
-		saveSettings();
-	}
+  system("clear");
+  print "Looks like this your first time running $PROGRAM.\n" .
+        "Would you like to configure your widgets? (Y/N/Q)\n:";
+  my $ch = ReadKey(0);
+  if ($ch =~ /y/i) {
+    configSettings();
+  } elsif ($ch =~ /q/i) {
+    system("clear");
+    ReadMode 0;
+    exit;
+  } else {
+    foreach $name (@DEFAULT_WIDGETS) {
+      if (exists $Widgets{ $name }) {
+        my $tmp = $Widgets{ $name };
+        $tmp->{type} = $name;
+        push(@ActiveWidgets, $tmp);
+      }
+    }
+    saveSettings();
+  }
 }
 
 sub configSettings
 {
-	my $done = 0;
-	do { # until ($done)
-		my $numWidgets = @ActiveWidgets;
-		my $numLines = $numWidgets;
-		if ($ROWS - 1 < $numLines) {
-			$numLines = $ROWS - 1;
-		}
-		system("clear");
-		for $i (0 .. $numLines) {
-			my $widget = $ActiveWidgets[$i];
-			print "$i. $widget->{name}\n";
-		}
-		print RED, 'A', , 'dd ',    RED, 'E', , 'dit ',
-		      RED, 'R', , 'emove ', RED, 'Q', , 'uit';
-		my $ch = ReadKey(0);
-		if ($ch =~ /a/i) {
-			addWidget();
-		} elsif ($ch =~ /e/i) {
-			my $num = getWidgetNumber();
-			editWidget($num);
-		} elsif ($ch =~ /r/i) {
-			my $num = getWidgetNumber();
-			removeWidget($num);
-		} elsif ($ch =~ /q/i) {
-			$done = 1;
-		}
-	} until ($done);
-	saveSettings();
+  my $done = 0;
+  do { # until ($done)
+    my $numWidgets = @ActiveWidgets;
+    my $numLines = $numWidgets;
+    if ($ROWS - 1 < $numLines) {
+      $numLines = $ROWS - 1;
+    }
+    system("clear");
+    for $i (0 .. $numLines) {
+      my $widget = $ActiveWidgets[$i];
+      print "$i. $widget->{name}\n";
+    }
+    print RED, 'A', , 'dd ',    RED, 'E', , 'dit ',
+          RED, 'R', , 'emove ', RED, 'Q', , 'uit';
+    my $ch = ReadKey(0);
+    if ($ch =~ /a/i) {
+      addWidget();
+    } elsif ($ch =~ /e/i) {
+      my $num = getWidgetNumber();
+      editWidget($num);
+    } elsif ($ch =~ /r/i) {
+      my $num = getWidgetNumber();
+      removeWidget($num);
+    } elsif ($ch =~ /q/i) {
+      $done = 1;
+    }
+  } until ($done);
+  saveSettings();
 }
 
 sub getWidgetNumber
 {
-	my $count = @ActiveWidgets;
-	my $num = ReadKey(0);
-	unless ($num =~ /^\d$/ && $num >= 1 && $num <= $count) {
-		print RED, "Invalid number.";
-		sleep 1;
-		return -1;
-	}
-	$num--; # Input starts at 1; indices start at 0.
-	return $num;
+  my $count = @ActiveWidgets;
+  my $num = ReadKey(0);
+  unless ($num =~ /^\d$/ && $num >= 1 && $num <= $count) {
+    print RED, "Invalid number.";
+    sleep 1;
+    return -1;
+  }
+  $num--; # Input starts at 1; indices start at 0.
+  return $num;
 }
 
 sub addWidget
 {
-	system("clear");
-	my $line = 1;
-	my @keys;
+  system("clear");
+  my $line = 1;
+  my @keys;
 # Print names of all widgets.
-	foreach $key (keys %Widgets) {
-		my $widget = $Widgets{$key};
-		print "$line. $widget->{name}\n";
-		push( @keys, $key );
-		$line++;
-		if ($line >= $ROWS) {
-			last;
-		}
-	}
-	print "Enter number: ";
-	my $num = ReadKey(0);
-	unless ($num >= 1 && $num <= @keys) {
-		print RED, "Invalid number.";
-		sleep 1; # User gets 1 second to read error message; TODO: make variable?
-		return;
-	}
-	$num--; # Input starts at 1; indices start at 0.
-	push( @ActiveWidgets, $Widgets{ $keys[$num] } );
-	editWidget($#ActiveWidgets);
+  foreach $key (keys %Widgets) {
+    my $widget = $Widgets{$key};
+    print "$line. $widget->{name}\n";
+    push( @keys, $key );
+    $line++;
+    if ($line >= $ROWS) {
+      last;
+    }
+  }
+  print "Enter number: ";
+  my $num = ReadKey(0);
+  unless ($num >= 1 && $num <= @keys) {
+    print RED, "Invalid number.";
+    sleep 1; # User gets 1 second to read error message; TODO: make variable?
+    return;
+  }
+  $num--; # Input starts at 1; indices start at 0.
+  push( @ActiveWidgets, $Widgets{ $keys[$num] } );
+  editWidget($#ActiveWidgets);
 }
 
 sub editWidget
 {
-	my $index = shift or return;
-	unless ($index >= 0 && $index <= $#ActiveWidgets) {
-		return;
-	}
-	system("clear");
-	my $widget = $ActiveWidgets[$index];
-	print BLUE, $widget->{name};
-	my $vars = $widget->{vars};
-	foreach $key (keys %$vars) {
-		my $variable = $vars->{$key};
-		my $format = $variable->{format};
-		if ($format =~ /^\+\w+,/) {
-			#print "$variable{name}:\n".
-			      #"
-		}
-		do {
-			print "$variable->{name}";
-			#if ($format
-			my $input = <>;
-		} until ( 0 );
-	}
+  my $index = shift or return;
+  unless ($index >= 0 && $index <= $#ActiveWidgets) {
+    return;
+  }
+  system("clear");
+  my $widget = $ActiveWidgets[$index];
+  print BLUE, $widget->{name};
+  my $vars = $widget->{vars};
+  foreach $key (keys %$vars) {
+    my $variable = $vars->{$key};
+    my $format = $variable->{format};
+    if ($format =~ /^\+\w+,/) {
+      #print "$variable{name}:\n".
+            #"
+    }
+    do {
+      print "$variable->{name}";
+      #if ($format
+      my $input = <>;
+    } until ( 0 );
+  }
 }
 
 sub removeWidget
 {
-	my $index = shift or return;
-	unless ($index >= 0 && $index <= $#ActiveWidgets) {
-		return;
-	}
-	delete $ActiveWidget[$index];
+  my $index = shift or return;
+  unless ($index >= 0 && $index <= $#ActiveWidgets) {
+    return;
+  }
+  delete $ActiveWidget[$index];
 }
 
 
@@ -403,342 +403,342 @@ sub removeWidget
 sub mainLoop
 {
 # Init the widgets with their counters set to refresh
-	open DEBUG, ">>$HOME/kwidgeDebug.txt";
-	my @output;
-	for (my $i = 0; $i < scalar( @ActiveWidgets ); $i++) {
-		my $widget = $ActiveWidgets[$i];
-		$widget->{timer} => 0;
-		push(@output, "");
-	}
-	print DEBUG scalar( @output ) . "\n";
-	my $blink = 0;
-	my $active = 1;
+  open DEBUG, ">>$HOME/kwidgeDebug.txt";
+  my @output;
+  for (my $i = 0; $i < scalar( @ActiveWidgets ); $i++) {
+    my $widget = $ActiveWidgets[$i];
+    $widget->{timer} => 0;
+    push(@output, "");
+  }
+  print DEBUG scalar( @output ) . "\n";
+  my $blink = 0;
+  my $active = 1;
 # Main loop starts here
-	while ($active) {
-		system("clear");
-		for (my $i = 0; $i < scalar( @ActiveWidgets); $i++) {
-			my $widget = $ActiveWidgets[$i];
-			$widget->{timer} = $widget->{timer} - 1;
-			if ($widget->{timer} <= 0) {
-				my $func = $widget->{function};
-				$output[$i] = &$func($blink, $widget->{vars});
-				$widget->{timer} = $widget->{refresh};
-			}
-			print RESET . $output[$i];
-			print DEBUG "$i: $output[$i]\n";
-		}
-		print DEBUG "-----\n\n";
-		# TODO: Add more keys; pass them to widgets?
-		if (ReadKey(0) =~ /q/i) {
-			$active = 0;
-		}
-		$blink = $blink ? 0 : 1; # Toggle the blinker
-		sleep 1;
-	}
+  while ($active) {
+    system("clear");
+    for (my $i = 0; $i < scalar( @ActiveWidgets); $i++) {
+      my $widget = $ActiveWidgets[$i];
+      $widget->{timer} = $widget->{timer} - 1;
+      if ($widget->{timer} <= 0) {
+        my $func = $widget->{function};
+        $output[$i] = &$func($blink, $widget->{vars});
+        $widget->{timer} = $widget->{refresh};
+      }
+      print RESET . $output[$i];
+      print DEBUG "$i: $output[$i]\n";
+    }
+    print DEBUG "-----\n\n";
+    # TODO: Add more keys; pass them to widgets?
+    if (ReadKey(0) =~ /q/i) {
+      $active = 0;
+    }
+    $blink = $blink ? 0 : 1; # Toggle the blinker
+    sleep 1;
+  }
 }
 
 
 ### WIDGET SUBROUTINES
-		
+    
 sub wgtExtern
 {
-	my $blink = shift;
-	my $vars = shift;
-	my $command = $vars->{command}->{value};
-	my $shell = $vars->{command}->{value};
-	if (-x $shell) {
-		return `$shell $command`;
-	} else {
-		return `$command`;
-	}
+  my $blink = shift;
+  my $vars = shift;
+  my $command = $vars->{command}->{value};
+  my $shell = $vars->{command}->{value};
+  if (-x $shell) {
+    return `$shell $command`;
+  } else {
+    return `$command`;
+  }
 }
 
 sub wgtBattery
 {
-	my $ret = "";
-	my $blink = shift;
-	my $vars = shift;
-	my $medium = $vars->{medium}->{value};
-	my $low = $vars->{low}->{value};
-	my $critical = $vars->{critical}->{value};
+  my $ret = "";
+  my $blink = shift;
+  my $vars = shift;
+  my $medium = $vars->{medium}->{value};
+  my $low = $vars->{low}->{value};
+  my $critical = $vars->{critical}->{value};
 
-	my $barSize = $COLS - 12;
+  my $barSize = $COLS - 12;
 
-	my $acpi = `acpi -b`;
-	chomp $acpi;
-	$acpi =~ s/.*:(.*)%.*/$1/;
-	my ($status, $level) = split(/, /, $acpi);
+  my $acpi = `acpi -b`;
+  chomp $acpi;
+  $acpi =~ s/.*:(.*)%.*/$1/;
+  my ($status, $level) = split(/, /, $acpi);
 
-	my $color = GREEN;
-	my $char = '=';
-	if ($level <= $medium) {
-		$color = YELLOW;
-	}
-	if ($level <= $low) {
-		$color = RED;
-	}
-	if ($level <= $critical && $blink) {
-		$color = BOLD ON_RED;
-	}
-	if ($status =~ /full/i) {
-		$color = BOLD;
-		$char = '~';
-	} elsif ($status =~ /dis/i) {
-		$char = '<';
-	} elsif ($status =~ /charg/i) {
-		$char = '>';
-	}
-	
-	#$ret .= "Battery: $status\n";#, ;
-	$ret .= $color . "Battery: $status\n[" . $color;
-	for my $i (0 .. $barSize) {
-		my $per = (100 * $i) / $barSize;
-		if ($per <= $level) {
-			$ret .= "$char";
-		} else {
-			$ret .= " ";
-		}
-	}
-	#$ret .= ']', $color, $level;
-	$ret .= "]" . $color . " $level%\n";
-	return $ret;
+  my $color = GREEN;
+  my $char = '=';
+  if ($level <= $medium) {
+    $color = YELLOW;
+  }
+  if ($level <= $low) {
+    $color = RED;
+  }
+  if ($level <= $critical && $blink) {
+    $color = BOLD ON_RED;
+  }
+  if ($status =~ /full/i) {
+    $color = BOLD;
+    $char = '~';
+  } elsif ($status =~ /dis/i) {
+    $char = '<';
+  } elsif ($status =~ /charg/i) {
+    $char = '>';
+  }
+  
+  #$ret .= "Battery: $status\n";#, ;
+  $ret .= $color . "Battery: $status\n[" . $color;
+  for my $i (0 .. $barSize) {
+    my $per = (100 * $i) / $barSize;
+    if ($per <= $level) {
+      $ret .= "$char";
+    } else {
+      $ret .= " ";
+    }
+  }
+  #$ret .= ']', $color, $level;
+  $ret .= "]" . $color . " $level%\n";
+  return $ret;
 }
 
 sub wgtTemperature
 {
-	my $ret = "";
-	my $blink = shift;
-	my %vars = shift;
-	
-	my $scale = $vars->{scale}->{value};
-	my $warning = $vars->{warning}->{value};
-	my $hot = $vars->{hot}->{value};
-	my $warm = $vars->{warm}->{value};
-	my $cold = $vars->{cold}->{value};
+  my $ret = "";
+  my $blink = shift;
+  my %vars = shift;
+  
+  my $scale = $vars->{scale}->{value};
+  my $warning = $vars->{warning}->{value};
+  my $hot = $vars->{hot}->{value};
+  my $warm = $vars->{warm}->{value};
+  my $cold = $vars->{cold}->{value};
 
-	my $temp = `acpi -t`;
-	chomp $temp;
-	$temp =~ s/.*, (.*?) .*/$1/;
-	if ($scale =~ /F/) {
-		$temp = $temp * 1.8 + 32;
-	}
+  my $temp = `acpi -t`;
+  chomp $temp;
+  $temp =~ s/.*, (.*?) .*/$1/;
+  if ($scale =~ /F/) {
+    $temp = $temp * 1.8 + 32;
+  }
 
-	my $color = GREEN;
-	if ($temp <= $cold) {
-		$color = BLUE;
-	}
-	if ($temp >= $warm) {
-		$color = YELLOW;
-	}
-	if ($temp >= $hot) {
-		$color = RED;
-	}
-	if ($temp >= $warning && $blink) {
-		$color = BOLD ON_RED;
-	}
+  my $color = GREEN;
+  if ($temp <= $cold) {
+    $color = BLUE;
+  }
+  if ($temp >= $warm) {
+    $color = YELLOW;
+  }
+  if ($temp >= $hot) {
+    $color = RED;
+  }
+  if ($temp >= $warning && $blink) {
+    $color = BOLD ON_RED;
+  }
 
-	$ret .= $color . "$temp $scale\n";
-	return $ret;
+  $ret .= $color . "$temp $scale\n";
+  return $ret;
 }
 
 sub wgtDate
 {
-	my $ret = "";
-	my $blink = shift;
-	my %vars = shift;
-	my $hourFormat = $vars->{hourFormat}->{value};
-	my $dateFormat = $vars->{dateFormat}->{value};
-	my $format = '';
-	if ($dateFormat == 'long') {
-		$format = '%a %b %d ';
-	} elsif ($dateFormat == 'short') {
-		$format = '%d/%m/%y ';
-	}
-	if ($hourFormat = '12H') {
-		$format .= '%l:%M %p';
-	} else {
-		$format .= '%H:%M';
-	}
+  my $ret = "";
+  my $blink = shift;
+  my %vars = shift;
+  my $hourFormat = $vars->{hourFormat}->{value};
+  my $dateFormat = $vars->{dateFormat}->{value};
+  my $format = '';
+  if ($dateFormat == 'long') {
+    $format = '%a %b %d ';
+  } elsif ($dateFormat == 'short') {
+    $format = '%d/%m/%y ';
+  }
+  if ($hourFormat = '12H') {
+    $format .= '%l:%M %p';
+  } else {
+    $format .= '%H:%M';
+  }
 
-	my $date = system("date +'$format'");
-	chomp $date;
+  my $date = system("date +'$format'");
+  chomp $date;
 
-	$ret .= "$date\n";
-	return $ret;
+  $ret .= "$date\n";
+  return $ret;
 }
 
 sub wgtConns
 {
-	my $ret = "";
-	my $blink = shift;
-	my %vars = shift;
+  my $ret = "";
+  my $blink = shift;
+  my %vars = shift;
 
-	my $condense = $vars->{condense}->{value};
-	my $limit = $Widgets->{connections}->{maxSize};
+  my $condense = $vars->{condense}->{value};
+  my $limit = $Widgets->{connections}->{maxSize};
 
-	my @netstat = `sudo netstat -pant | grep EST`;
-	my @netdata;
-	foreach $conn (@netstat) {
-		$conn =~ s!.*:\d+ +(.*?) .*\d+!$1!; # 127.0.0.1:80/process
-		my ($ip, $port, $process) = split(/:|\//, $conn);
+  my @netstat = `sudo netstat -pant | grep EST`;
+  my @netdata;
+  foreach $conn (@netstat) {
+    $conn =~ s!.*:\d+ +(.*?) .*\d+!$1!; # 127.0.0.1:80/process
+    my ($ip, $port, $process) = split(/:|\//, $conn);
 
-		my $new_entry = 1;
-		if ($condense) {
-			foreach (@netdata) { # Check for matching data
-				if ($_->{process} =~ m/$process/ &&
-			    	$_->{port} =~ m/$port/) {
-					$_->{count}++;
-					$new_entry = 0;
-				}
-			}
-		}
-		if ($new_entry && @netdata < $limit) {
-			push(@netdata, {ip => $ip, port => $port,
-					process => $process, count => 1});
-		} elsif (@netdata >= $limit) {
-			last;
-		}
-	}
-	@netdata = sort { $a->{port} <=> $b->{port} } @netdata;
+    my $new_entry = 1;
+    if ($condense) {
+      foreach (@netdata) { # Check for matching data
+        if ($_->{process} =~ m/$process/ &&
+            $_->{port} =~ m/$port/) {
+          $_->{count}++;
+          $new_entry = 0;
+        }
+      }
+    }
+    if ($new_entry && @netdata < $limit) {
+      push(@netdata, {ip => $ip, port => $port,
+          process => $process, count => 1});
+    } elsif (@netdata >= $limit) {
+      last;
+    }
+  }
+  @netdata = sort { $a->{port} <=> $b->{port} } @netdata;
 
-	for (my $i = 0; $i < scalar( @netdata); $i++) {
-		my %line = $netdata[$i];
-		if ($line->{process} == 1) {
-			$ret .= "$line->{process} $line->{ip}:$line->{port}\n";
-		} else {
-			$ret .= "$line->{process} :$line->{port} x $line->{count}\n";
-		}
-	}
-	return $ret;
+  for (my $i = 0; $i < scalar( @netdata); $i++) {
+    my %line = $netdata[$i];
+    if ($line->{process} == 1) {
+      $ret .= "$line->{process} $line->{ip}:$line->{port}\n";
+    } else {
+      $ret .= "$line->{process} :$line->{port} x $line->{count}\n";
+    }
+  }
+  return $ret;
 }
 
 sub wgtNetwork
 {
-	my $ret = "";
-	my $blink = shift;
-	my %vars = shift;
+  my $ret = "";
+  my $blink = shift;
+  my %vars = shift;
 
-	my $iwdata = $vars->{iwdata}->{value};
-	my $ifdata = $vars->{ifdata}->{value};
+  my $iwdata = $vars->{iwdata}->{value};
+  my $ifdata = $vars->{ifdata}->{value};
 
-	my $wifi = $vars->{wifi}->{value};
-	my @ifaces = (split(/\W/, $vars->{wifi}->{value}),
-	              split(/\W/, $vars->{eth}->{value})  );
-	if (@ifaces > $Widgets->{network}->{maxLines}) {
-		my $top = $Widgets->{network}->{maxLines} - 1;
-		@ifaces = @ifaces[0 .. $top];
-	}
-	
+  my $wifi = $vars->{wifi}->{value};
+  my @ifaces = (split(/\W/, $vars->{wifi}->{value}),
+                split(/\W/, $vars->{eth}->{value})  );
+  if (@ifaces > $Widgets->{network}->{maxLines}) {
+    my $top = $Widgets->{network}->{maxLines} - 1;
+    @ifaces = @ifaces[0 .. $top];
+  }
+  
 
-	my @lines;
+  my @lines;
 
-	foreach $iface (@ifaces) {
-		my @ifconfig = `ifconfig $iface`;
-		my $line = "$iface: ";
-		if ($ifdata =~ /mac/) {
-			my $mac = grep(/HWaddr/, @ifconfig);
-			$mac =~ s/.*HWaddr([\d:]+).*/$1/;
-			$line .= "$mac ";
-		}
-		if ($ifdata =~ /short ip/) {
-			my $ip = grep(/inet addr/, @ifconfig);
-			$ip =~ s/.*inet addr:(\d+\.)->{3}(\d+).*/$1/;
-			$line .= "IP: .$ip ";
-		} elsif ($ifdata =~ /ip/) {
-			my $ip = grep(/inet addr/, @ifconfig);
-			$ip =~ s/.*inet addr:([\d\.]+).*/$1/;
-			$line .= "IP: $ip ";
-		}
-		if ($ifdata =~ /bcast/) {
-			my $bcast = grep(/Bcast/, @ifconfig);
-			$bcast =~ s/.*Bcast:([\d\.]+).*/$1/;
-			$line .= "Bcast: $bcast ";
-		}
-		if ($ifdata =~ /rx bytes/) {
-			my $rx =~ grep(/RX bytes/, @ifconfig);
-			$rx =~ s/.*RX bytes.*?\((.*?)\).*/$1/;
-			$line .= "RX: $rx ";
-		}
-		if ($ifdata =~ /tx bytes/) {
-			my $tx =~ grep(/TX bytes/, @ifconfig);
-			$tx =~ s/.*TX bytes.*?\((.*?)\).*/$1/;
-			$line .= "TX: $tx ";
-		}
-		if ($wifi =~ /$iface/) {
-			my @iwconfig = `iwconfig $iface`;
-			if ($iwdata =~ /essid/) {
-				my $essid =~ grep(/ESSID/, @iwconfig);
-				$essid =~ s/.*"(.*?)".*/$1/;
-				$line .= "$essid ";
-			}
-			if ($iwdata =~ /frequency/) {
-				my $freq =~ grep(/Frequency/, @iwconfig);
-				$freq =~ s/.*Frequency=(.*?) .*/$1/;
-				$line .= "$freq GHz ";
-			}
-			if ($iwdata =~ /AP/) {
-				my $ap =~ grep(/Access Point/, @iwconfig);
-				$ap =~ s/.*Point: ([\w:]+).*/$1/;
-				$line .= "AP $ap ";
-			}
-			if ($iwdata =~ /quality/) {
-				my $qual =~ grep(/Quality/, @iwconfig);
-				$qual =~ s/.*Quality=(\d+).*/$1/;
-				$line .= "$qual% ";
-			}
-			if ($iwdata =~ /signal/) {
-				my $signal =~ grep(/Signal/, @iwconfig);
-				$signal =~ s/.*Signal level=(.*?) .*/$1/;
-				$line .= "Sgn $signal dBm ";
-			}
-			if ($iwdata =~ /noise/) {
-				my $noise =~ grep(/Noise/, @iwconfig);
-				$noise =~ s/.*Noise level=(.*?) .*/$1/;
-				$line .= "Noi $noise dBm ";
-			}
-		}
-		$line =~ s/ +$//;
-		$line =~ s/(.->{,$COLS}).*/$1/;
-		$ret .= "$line\n";
-	}
-	return $ret;
+  foreach $iface (@ifaces) {
+    my @ifconfig = `ifconfig $iface`;
+    my $line = "$iface: ";
+    if ($ifdata =~ /mac/) {
+      my $mac = grep(/HWaddr/, @ifconfig);
+      $mac =~ s/.*HWaddr([\d:]+).*/$1/;
+      $line .= "$mac ";
+    }
+    if ($ifdata =~ /short ip/) {
+      my $ip = grep(/inet addr/, @ifconfig);
+      $ip =~ s/.*inet addr:(\d+\.)->{3}(\d+).*/$1/;
+      $line .= "IP: .$ip ";
+    } elsif ($ifdata =~ /ip/) {
+      my $ip = grep(/inet addr/, @ifconfig);
+      $ip =~ s/.*inet addr:([\d\.]+).*/$1/;
+      $line .= "IP: $ip ";
+    }
+    if ($ifdata =~ /bcast/) {
+      my $bcast = grep(/Bcast/, @ifconfig);
+      $bcast =~ s/.*Bcast:([\d\.]+).*/$1/;
+      $line .= "Bcast: $bcast ";
+    }
+    if ($ifdata =~ /rx bytes/) {
+      my $rx =~ grep(/RX bytes/, @ifconfig);
+      $rx =~ s/.*RX bytes.*?\((.*?)\).*/$1/;
+      $line .= "RX: $rx ";
+    }
+    if ($ifdata =~ /tx bytes/) {
+      my $tx =~ grep(/TX bytes/, @ifconfig);
+      $tx =~ s/.*TX bytes.*?\((.*?)\).*/$1/;
+      $line .= "TX: $tx ";
+    }
+    if ($wifi =~ /$iface/) {
+      my @iwconfig = `iwconfig $iface`;
+      if ($iwdata =~ /essid/) {
+        my $essid =~ grep(/ESSID/, @iwconfig);
+        $essid =~ s/.*"(.*?)".*/$1/;
+        $line .= "$essid ";
+      }
+      if ($iwdata =~ /frequency/) {
+        my $freq =~ grep(/Frequency/, @iwconfig);
+        $freq =~ s/.*Frequency=(.*?) .*/$1/;
+        $line .= "$freq GHz ";
+      }
+      if ($iwdata =~ /AP/) {
+        my $ap =~ grep(/Access Point/, @iwconfig);
+        $ap =~ s/.*Point: ([\w:]+).*/$1/;
+        $line .= "AP $ap ";
+      }
+      if ($iwdata =~ /quality/) {
+        my $qual =~ grep(/Quality/, @iwconfig);
+        $qual =~ s/.*Quality=(\d+).*/$1/;
+        $line .= "$qual% ";
+      }
+      if ($iwdata =~ /signal/) {
+        my $signal =~ grep(/Signal/, @iwconfig);
+        $signal =~ s/.*Signal level=(.*?) .*/$1/;
+        $line .= "Sgn $signal dBm ";
+      }
+      if ($iwdata =~ /noise/) {
+        my $noise =~ grep(/Noise/, @iwconfig);
+        $noise =~ s/.*Noise level=(.*?) .*/$1/;
+        $line .= "Noi $noise dBm ";
+      }
+    }
+    $line =~ s/ +$//;
+    $line =~ s/(.->{,$COLS}).*/$1/;
+    $ret .= "$line\n";
+  }
+  return $ret;
 }
 
 sub wgtNmap
 {
-	my $ret = "";
-	my $blink = shift;
-	my %vars = shift;
+  my $ret = "";
+  my $blink = shift;
+  my %vars = shift;
 
-	my $iface = $vars->{iface}->{value};
-	my $ping = $vars->{pingOnly}->{value};
+  my $iface = $vars->{iface}->{value};
+  my $ping = $vars->{pingOnly}->{value};
 
-	my $range = grep(/Bcast/, `ifconfig $iface`);
-	$range =~ s/.*Bcast:([\d\.]+).*/$1/;
-	$range =~ s/255/1-254/g;
-	if ($ping) {
-		my @up = grep(/scan report/, `nmap -sP $range`);
-		my $output = shift( @up );
-		$output =~ s/.*(\d+\.)->{3}(\d+).*/$1($2/;
-		foreach $line (@up) {
-			$line =~ s/.*\.(\d+).*/$1/;
-			$output .= ",$1";
-		}
-		$ret .= "$output)\n";
-		return;
-	}
-	my @nmap = grep(/Ports/, `nmap $range --open -oG -`);
-	if (@nmap > $Widgets->{nmap}->{maxLines}) {
-		my $top = $Widgets->{nmap}->{maxLines} - 1;
-		@nmap = @nmap[0 .. $top];
-	}
-	foreach $line (@nmap) {
-		my $host = $line;
-		$host =~ s/.*Host: (.*?) .*/$1/;
-		$line =~ s!.*Ports: (.*)/// .*!$1!;
-		$line =~ s!/open.*?///!!g;
-		$ret .= "$host: $line\n";
-	}
-	return $ret;
+  my $range = grep(/Bcast/, `ifconfig $iface`);
+  $range =~ s/.*Bcast:([\d\.]+).*/$1/;
+  $range =~ s/255/1-254/g;
+  if ($ping) {
+    my @up = grep(/scan report/, `nmap -sP $range`);
+    my $output = shift( @up );
+    $output =~ s/.*(\d+\.)->{3}(\d+).*/$1($2/;
+    foreach $line (@up) {
+      $line =~ s/.*\.(\d+).*/$1/;
+      $output .= ",$1";
+    }
+    $ret .= "$output)\n";
+    return;
+  }
+  my @nmap = grep(/Ports/, `nmap $range --open -oG -`);
+  if (@nmap > $Widgets->{nmap}->{maxLines}) {
+    my $top = $Widgets->{nmap}->{maxLines} - 1;
+    @nmap = @nmap[0 .. $top];
+  }
+  foreach $line (@nmap) {
+    my $host = $line;
+    $host =~ s/.*Host: (.*?) .*/$1/;
+    $line =~ s!.*Ports: (.*)/// .*!$1!;
+    $line =~ s!/open.*?///!!g;
+    $ret .= "$host: $line\n";
+  }
+  return $ret;
 }
 
