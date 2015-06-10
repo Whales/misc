@@ -11,23 +11,23 @@ our $CONFIG	= "$HOME/.$PROGRAM"."rc";
 our @DEFAULT_WIDGETS = ("battery","temp","date","connections");
 
 # Subroutines used by status directly
-sub loadSettings;	# Load settings from $CONFIG
-sub saveSettings;	# Save settings to $CONFIG
-sub firstConfig;	# If $CONFIG doesn't exist, introduce and configure
+sub loadSettings;	  # Load settings from $CONFIG
+sub saveSettings;	  # Save settings to $CONFIG
+sub firstConfig;	  # If $CONFIG doesn't exist, introduce and configSettings
 sub configSettings;	# Configure settings
-sub addWidget;		# Add a widget
-sub editWidget;		# Edit a widget's settings
-sub removeWidget;	# Remove a widget
-sub mainLoop;		# Main program loop
-sub error;		# Quit with an error message
+sub addWidget;		  # Add a widget
+sub editWidget;		  # Edit a widget's settings
+sub removeWidget;	  # Remove a widget
+sub mainLoop;		    # Main program loop
+sub error;		      # Quit with an error message
 
 # Widget output subroutines
-sub wgtBattery;
-sub wgtTemp;
-sub wgtDate;
-sub wgtConns;
-sub wgtNetwork;
-sub wgtNmap;
+sub wgtBattery;     # Battery status      (requires acpi)
+sub wgtTemp;        # Temperature         (requires acpi)
+sub wgtDate;        # Current date
+sub wgtConns;       # Active connections  (requires netstat)
+sub wgtNetwork;     # NIC status          (requires ifconfig)
+sub wgtNmap;        # Devices on network  (requires nmap)
 
 # List of all available widgets; not necessarily those used
 # Each widget needs:
@@ -180,7 +180,7 @@ our %Widgets = (
 			},
 			ifdata => {
 				name => "Interface information",
-				value => "shortip",
+				value => "short ip",
 				format => "+mac,short ip,ip,bcast,rx bytes,tx bytes",
 			},
 		},
@@ -233,7 +233,7 @@ sub loadSettings
 			push( @ActiveWidgets, %tmp );
 			$tmp = {};
 		} elsif (exists $Widgets{$line} ) {
-			if (exists $tmp{name }) {	# Active widget exists
+			if (exists $tmp{name}) {	# Active widget exists
 				push( @ActiveWidgets, %tmp );
 			}
 			$tmp = $Widgets{ $line };
@@ -295,7 +295,7 @@ sub firstConfig
 sub configSettings
 {
 	my $done = 0;
-	do {
+	do { # until ($done)
 		my $numWidgets = @ActiveWidgets;
 		my $numLines = $numWidgets;
 		if ($ROWS - 1 < $numLines) {
@@ -333,7 +333,7 @@ sub getWidgetNumber
 		sleep 1;
 		return -1;
 	}
-	$num--;
+	$num--; # Input starts at 1; indices start at 0.
 	return $num;
 }
 
@@ -342,6 +342,7 @@ sub addWidget
 	system("clear");
 	my $line = 1;
 	my @keys;
+# Print names of all widgets.
 	foreach $key (keys %Widgets) {
 		my $widget = $Widgets{$key};
 		print "$line. $widget->{name}\n";
@@ -355,10 +356,10 @@ sub addWidget
 	my $num = ReadKey(0);
 	unless ($num >= 1 && $num <= @keys) {
 		print RED, "Invalid number.";
-		sleep 1;
+		sleep 1; # User gets 1 second to read error message; TODO: make variable?
 		return;
 	}
-	$num--;
+	$num--; # Input starts at 1; indices start at 0.
 	push( @ActiveWidgets, $Widgets{ $keys[$num] } );
 	editWidget($#ActiveWidgets);
 }
