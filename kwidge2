@@ -242,7 +242,7 @@ sub loadSettings
       my ($var, $value) = split(/ /, $line);
       if (exists $tmp->{vars}->{ $var } ) {
         $tmp->{vars}->{ $var } = $value;
-      } elsif ($tmp->{type} = 'extern' && exists $tmp->{ $var }) {
+      } elsif ($tmp->{type} == 'extern' && exists $tmp->{ $var }) {
         $tmp->{ $var } = $value;
       }
     }
@@ -554,7 +554,7 @@ sub wgtDate
   } elsif ($dateFormat == 'short') {
     $format = '%d/%m/%y ';
   }
-  if ($hourFormat = '12H') {
+  if ($hourFormat == '12H') {
     $format .= '%l:%M %p';
   } else {
     $format .= '%H:%M';
